@@ -13,7 +13,7 @@ export default {
   },
   async fetchProductById(productId) {
     try {
-      const response = await axios.get(`/products/${productId}`);
+      const response = await axios.get(`/productos/${productId}`);
       return response.data;
     } catch (error) {
       console.error('Error fetching product:', error);
@@ -22,7 +22,7 @@ export default {
   },
   async createProduct(productData) {
     try {
-      const response = await axios.post('/products', productData);
+      const response = await axios.post('/productos', productData);
       return response.data;
     } catch (error) {
       console.error('Error creating product:', error);
@@ -31,7 +31,7 @@ export default {
   },
   async updateProduct(productId, productData) {
     try {
-      const response = await axios.put(`/products/${productId}`, productData);
+      const response = await axios.put(`/productos/${productId}`, productData);
       return response.data;
     } catch (error) {
       console.error('Error updating product:', error);
@@ -40,7 +40,7 @@ export default {
   },
   async deleteProduct(productId) {
     try {
-      await axios.delete(`/products/${productId}`);
+      await axios.delete(`/productos/${productId}`);
     } catch (error) {
       console.error('Error deleting product:', error);
       throw error;

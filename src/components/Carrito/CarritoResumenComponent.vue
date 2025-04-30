@@ -5,14 +5,17 @@
       El carrito está vacío.
     </div>
     <div v-else>
+      <!-- Lista de productos -->
       <table class="carrito-tabla">
         <thead>
           <tr>
             <th>Imagen</th>
             <th>Producto</th>
+            <th>Variante</th>
             <th>Cantidad</th>
             <th>Precio</th>
-            <th>Total</th>
+            <th>Subtotal</th>
+            <th></th>
           </tr>
         </thead>
         <tbody>
@@ -22,28 +25,74 @@
             </td>
             <td>{{ item.producto.nombre }}</td>
             <td>
-  <button @click="disminuirCantidadCarrito(item.producto.id)" class="cantidad-btn">-</button>
-  <span class="cantidad-num">{{ item.cantidad }}</span>
-  <button @click="aumentarCantidad(item.producto.id)" class="cantidad-btn">+</button>
-  <button @click="confirmarEliminacion(item.producto.id)" class="eliminar-btn" title="Eliminar producto">
-    🗑️
-  </button>
-</td>
+              <!-- Variante ejemplo: talla/color, personaliza según tus datos -->
+              <span v-if="item.producto.variante">{{ item.producto.variante }}</span>
+              <span v-else>-</span>
+            </td>
+            <td>
+              <button @click="disminuirCantidadCarrito(item.producto.id)" class="cantidad-btn" :disabled="item.cantidad <= 1">-</button>
+              <span class="cantidad-num">{{ item.cantidad }}</span>
+              <button @click="aumentarCantidad(item.producto.id)" class="cantidad-btn">+</button>
+            </td>
             <td>${{ item.producto.precio }}</td>
             <td>${{ item.producto.precio * item.cantidad }}</td>
+            <td>
+              <button @click="confirmarEliminacion(item.producto.id)" class="eliminar-btn" title="Eliminar producto">
+                🗑️
+              </button>
+            </td>
           </tr>
         </tbody>
       </table>
-      <div class="carrito-total">
-        <strong>Total a pagar:</strong> ${{ carrito.totalAPagar }}
+      <!-- Resumen del pedido -->
+      <div class="carrito-resumen-detalle">
+        <div class="carrito-resumen-row"><span>Subtotal:</span> <span>${{ subtotal }}</span></div>
+        <div class="carrito-resumen-row"><span>Descuento:</span> <span>-${{ descuento }}</span></div>
+        <div class="carrito-resumen-row"><span>Envío:</span> <span v-if="envio === 0">Gratis</span><span v-else>${{ envio }}</span></div>
+        <div class="carrito-resumen-row"><span>IVA (19%):</span> <span>${{ iva }}</span></div>
+        <div class="carrito-resumen-row total-row"><strong>Total a pagar:</strong> <strong>${{ totalFinal }}</strong></div>
       </div>
+      <!-- Acciones principales -->
+      <div class="carrito-acciones">
+        <input v-model="codigoCupon" placeholder="Código de cupón" class="cupon-input" />
+        <button @click="aplicarCupon" class="cupon-btn">Aplicar cupón</button>
+        <button @click="seguirComprando" class="secundario-btn">Seguir comprando</button>
+        <button @click="finalizarCompra" class="principal-btn">Finalizar compra</button>
+      </div>
+      <div v-if="mensajeCupon" class="cupon-mensaje">{{ mensajeCupon }}</div>
     </div>
   </div>
 </template>
 
 <script setup>
+import { ref, computed } from 'vue';
+import { useRouter } from 'vue-router';
 import { useCarritoStore } from '@/stores/carrito';
 const carrito = useCarritoStore();
+const router = useRouter();
+
+// Simulación de cupón
+const codigoCupon = ref('');
+const descuento = ref(0);
+const mensajeCupon = ref('');
+
+const subtotal = computed(() => carrito.items.reduce((acc, item) => acc + item.producto.precio * item.cantidad, 0));
+const envio = computed(() => subtotal.value >= 50000 ? 0 : 3000);
+const iva = computed(() => Math.round(subtotal.value * 0.19));
+const totalFinal = computed(() => subtotal.value + envio.value + iva.value - descuento.value);
+
+function aplicarCupon() {
+  if (codigoCupon.value.trim().toLowerCase() === 'descuento10') {
+    descuento.value = Math.round(subtotal.value * 0.10);
+    mensajeCupon.value = 'Cupón aplicado: 10% de descuento';
+  } else if (codigoCupon.value.trim() !== '') {
+    descuento.value = 0;
+    mensajeCupon.value = 'Cupón no válido';
+  } else {
+    descuento.value = 0;
+    mensajeCupon.value = '';
+  }
+}
 
 function aumentarCantidad(productoId) {
   const item = carrito.items.find(i => i.producto.id === productoId);
@@ -54,16 +103,23 @@ function aumentarCantidad(productoId) {
 
 function disminuirCantidadCarrito(productoId) {
   const item = carrito.items.find(i => i.producto.id === productoId);
-  console.log("item.cantidad", item.cantidad)
-  if (item && item.cantidad > 0) {
+  if (item && item.cantidad > 1) {
     carrito.disminuirCantidad(productoId);
   }
 }
 
 function confirmarEliminacion(productoId) {
-  if (window.confirm('¿Seguro que deseas eliminar este producto del carrito?')) {
+  if (confirm('¿Seguro que deseas eliminar este producto del carrito?')) {
     carrito.eliminarDelCarrito(productoId);
   }
+}
+
+function seguirComprando() {
+  router.push('/');
+}
+
+function finalizarCompra() {
+  alert('Funcionalidad de compra aún no implementada. Aquí iría el checkout.');
 }
 </script>
 

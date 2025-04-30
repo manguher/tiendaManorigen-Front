@@ -9,10 +9,11 @@
     <ul v-if="productoStore.products.length">
       <li v-for="product in productoStore.products" :key="product.id">
         <h2>{{ product.nombre }}</h2>
+        <h2>{{ product.id }}</h2>
         <p>{{ product.descripcion }}</p>
         <p>Precio: ${{ product.precio }}</p>
         <img :src="product.images[0].smallUrl" :alt="product.nombre" />
-        <button @click="agregarAlCarrito(product)">Agregar al carrito</button>
+        <router-link :to="`/producto/${product.id}`">Ver detalle</router-link>
       </li>
     </ul>
     <!-- Mensaje cuando no hay productos -->
