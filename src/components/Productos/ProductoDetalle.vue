@@ -1,31 +1,62 @@
 <template>
   <div class="product-detail-view">
     <div class="gallery">
-      <img :src="mainImage" :alt="producto.nombre" class="main-image" />
-      <div class="thumbnails" v-if="producto.images && producto.images.length > 1">
-        <img v-for="(img, idx) in producto.images" :key="idx" :src="img.smallUrl || img.url" class="thumb" :class="{active: img.url === mainImage}" @click="mainImage = img.url" />
+      <img 
+        :src="mainImage" 
+        :alt="producto.nombre" 
+        class="main-image" 
+        @click="openLightbox(mainImageIndex)"
+        style="cursor: zoom-in"
+        @error="handleImageError"
+      />
+      <div class="thumbnails" v-if="hasImages">
+        <img 
+          v-for="(img, idx) in images" 
+          :key="idx" 
+          :src="BASE_URL + (img.smallUrl || img.url)" 
+          class="thumb" 
+          :class="{active: (BASE_URL + img.originalUrl) === mainImage}" 
+          @click="openLightbox(idx)"
+          @error="handleImageError"
+        />
       </div>
+      <vue-easy-lightbox
+        :visible="lightboxVisible"
+        :imgs="imageUrls"
+        :index="lightboxIndex"
+        @hide="lightboxVisible = false"
+      />
     </div>
     <div class="product-info">
       <h1>{{ producto.nombre }}</h1>
       <div class="price">
         <span class="actual">${{ producto.precio }}</span>
-        <span v-if="producto.descuento" class="old">${{ producto.precio + producto.descuento }}</span>
+        <!-- <span v-if="producto.descuento" class="old">${{ producto.precio + producto.descuento }}</span> -->
       </div>
       <p class="desc">{{ producto.descripcion }}</p>
-      <div v-if="producto.stock > 0" class="stock">Stock: {{ producto.stock }}</div>
+      <div v-if="!isOutOfStock" class="stock">Stock: {{ producto.stock }}</div>
       <div v-else class="stock out">Sin stock</div>
       <!-- Selector de cantidad -->
       <div class="cantidad-select">
-        <button @click="cambiarCantidad(-1)" :disabled="cantidadLocal <= 1">-</button>
-        <span>{{ cantidadLocal }}</span>
-        <button @click="cambiarCantidad(1)" :disabled="cantidadLocal >= producto.stock">+</button>
+        <button 
+          @click="() => cambiarCantidad(-1, producto.stock)" 
+          :disabled="cantidad <= MIN_CANTIDAD"
+        >-</button>
+        <span>{{ cantidad }}</span>
+        <button 
+          @click="() => cambiarCantidad(1, producto.stock)" 
+          :disabled="cantidad >= producto.stock"
+        >+</button>
       </div>
       <!-- Botón agregar al carrito -->
-      <button class="add-cart" :disabled="producto.stock === 0" @click="emitirAgregarAlCarrito">Agregar al carrito</button>
+      <button 
+        class="add-cart" 
+        :disabled="isOutOfStock" 
+        @click="emitirAgregarAlCarrito"
+      >Agregar al carrito</button>
       <div v-if="mensaje" class="msg">{{ mensaje }}</div>
       <!-- Características destacadas -->
-      <ul class="features">
+      <ul class="features" v-once>
         <li>Envío gratis sobre $50.000</li>
         <li>Pago seguro</li>
         <li>Devolución garantizada</li>
@@ -34,36 +65,90 @@
   </div>
 </template>
 
-<script setup>
-import { ref, watch } from 'vue';
-const props = defineProps({
-  producto: { type: Object, required: true },
-  cantidad: { type: Number, default: 1 }
-});
-const emit = defineEmits(['agregar-al-carrito']);
+<script setup lang="ts">
+import { ref, computed, watch } from 'vue';
+import VueEasyLightbox from 'vue-easy-lightbox';
+const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:1337';
+import { useProductImage } from '@/composables/useProductImage';
+import { useCartActions } from '@/composables/useCartActions';
 
-const cantidadLocal = ref(props.cantidad);
-const mainImage = ref(props.producto.images && props.producto.images.length ? props.producto.images[0].url : '');
-const mensaje = ref('');
+import type { Producto } from '@/types/producto';
 
-watch(() => props.producto, (nuevo) => {
-  cantidadLocal.value = 1;
-  if (nuevo && nuevo.images && nuevo.images.length) {
-    mainImage.value = nuevo.images[0].url;
-  }
-});
+// Estado para el visor de imágenes
+const lightboxVisible = ref(false);
+const lightboxIndex = ref(0);
 
-function cambiarCantidad(delta) {
-  const nueva = cantidadLocal.value + delta;
-  if (nueva >= 1 && nueva <= props.producto.stock) {
-    cantidadLocal.value = nueva;
-  }
+// Generar array de URLs absolutas para el visor
+const images = computed(() => mapImagenesToImages(props.producto.imagenes.data));
+const imageUrls = computed(() => images.value.map(img => BASE_URL + img.originalUrl));
+
+function openLightbox(index: number) {
+  lightboxIndex.value = index;
+  lightboxVisible.value = true;
 }
 
+const mainImageIndex = computed(() => {
+  return images.value.findIndex(img => BASE_URL + img.originalUrl === mainImage.value);
+});
+
+const props = defineProps({
+  producto: {
+    type: Object as () => Producto, 
+    required: true,
+    validator: (value: Producto) => {
+      return Boolean(value.nombre && typeof value.precio === 'number');
+    }
+  },
+  cantidad: { 
+    type: Number, 
+    default: 1 
+  }
+});
+
+const emit = defineEmits<{
+  'agregar-al-carrito': [{ producto: Producto; cantidad: number }]
+}>();
+
+// Computed properties
+const hasImages = computed(() => props.producto.imagenes?.data?.length > 0);
+const isOutOfStock = computed(() => props.producto.stock === 0);
+
+// Composables
+console.log("producto composables", props.producto);
+// Adaptar las imágenes del producto al formato esperado por useProductImage
+function mapImagenesToImages(imagenes: Producto['imagenes']['data']) {
+  return imagenes.map(img => ({
+    url: img.attributes.formats?.small?.url || img.attributes.url,
+    smallUrl: img.attributes.formats?.thumbnail?.url || img.attributes.url,
+    originalUrl: img.attributes.url,
+    alt: img.attributes.alternativeText || img.attributes.name,
+    caption: img.attributes.caption,
+    width: img.attributes.width,
+    height: img.attributes.height
+  }));
+}
+
+const { mainImage, setMainImage, handleImageError, updateImagesFromProduct } = useProductImage(images.value);
+const { cantidad, mensaje, cambiarCantidad, mostrarMensaje, resetCantidad } = useCartActions(props.cantidad);
+const MIN_CANTIDAD = 1;
+
+// Watch effect
+
+
+watch(() => props.producto, (nuevo) => {
+  resetCantidad();
+  if (nuevo.imagenes && Array.isArray(nuevo.imagenes.data) && nuevo.imagenes.data.length > 0) {
+    updateImagesFromProduct(mapImagenesToImages(nuevo.imagenes.data));
+  }
+});
+
+// Methods
 function emitirAgregarAlCarrito() {
-  emit('agregar-al-carrito', { producto: props.producto, cantidad: cantidadLocal.value });
-  mensaje.value = '¡Producto agregado al carrito!';
-  setTimeout(() => mensaje.value = '', 1800);
+  emit('agregar-al-carrito', { 
+    producto: props.producto, 
+    cantidad: cantidad.value 
+  });
+  mostrarMensaje('¡Producto agregado al carrito!');
 }
 </script>
 

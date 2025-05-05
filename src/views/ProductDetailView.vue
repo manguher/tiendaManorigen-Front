@@ -10,7 +10,7 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted } from 'vue';
+import { ref, watch, computed } from 'vue';
 import { useRoute } from 'vue-router';
 import { useProductoStore } from '@/stores/producto';
 import ProductoDetalle from '@/components/Productos/ProductoDetalle.vue';
@@ -19,28 +19,40 @@ import { useCarritoStore } from '@/stores/carrito';
 const route = useRoute();
 const productoStore = useProductoStore();
 const carritoStore = useCarritoStore();
-const producto = ref(null);
 const cantidad = ref(1);
 
+// El store reconoce que le estoy pidiendo el valor de un producto por id gracias a
+// la funcion "fetchProductById" que se encarga de hacer la peticion a la API
+// y guardar el resultado en la propiedad "product" del store.
+// La propiedad "product" es un ref que se inicializa en null y se actualiza
+// cuando se llama a la funcion "fetchProductById" con el id del producto como parametro.
+// La funcion "fetchProductById" utiliza el hook "useAsync" para hacer la peticion
+// a la API y manejar el estado de carga y el error en caso de que algo falle.
+
+// Pinia infiere que el valor retornado por la funcion "fetchProductById" debe guardarse
+// en la propiedad "product" del store gracias a la convencion de nomenclatura.
+// La convencion es que si el nombre de la funcion termina en "ByX", donde X es el nombre
+// de una propiedad, pinia asume que el valor retornado debe guardarse en esa propiedad.
+// En este caso, la funcion se llama "fetchProductById", por lo que Pinia asume que el valor
+// retornado debe guardarse en la propiedad "product".
+
+
 const fetchProducto = async () => {
-  console.log("route.params.id", route.params.id);
+
+
   await productoStore.fetchProductById(route.params.id);
-  console.log("productoStore.product", productoStore.product.data.attributes.stock);
-  console.log("productoStore.product.stock", productoStore.product.data.attributes.stock);
-  producto.value = productoStore.product.data.attributes;
   cantidad.value = 1;
 };
 
-onMounted(fetchProducto);
-watch(() => route.params.id, fetchProducto);
+watch(() => route.params.id, fetchProducto, { immediate: true });
 
 function agregarAlCarrito(payload) {
-  console.log("payload", payload);
-  // payload: { producto, cantidad }
   if (payload.producto && payload.cantidad <= payload.producto.stock) {
     carritoStore.agregarAlCarrito({ ...payload.producto, cantidad: payload.cantidad });
   }
 }
+
+const producto = computed(() => productoStore.product?.data?.attributes || null);
 </script>
 
 <style scoped>

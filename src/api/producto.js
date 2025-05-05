@@ -5,15 +5,28 @@ export default {
   async fetchProducts() {
     try {
       const response = await axios.get('/productos?populate=*');
+      console.log("api producto", response.data);
       return response.data;
     } catch (error) {
       console.error('Error fetching products:', error);
       throw error;
     }
   },
+
+  async fetchProductImages(productId) {
+    try {
+      const response = await axios.get(`/productos/${productId}?populate=imagenes`);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching product images:', error);
+      throw error;
+    }
+  },
+
   async fetchProductById(productId) {
     try {
-      const response = await axios.get(`/productos/${productId}`);
+      const response = await axios.get(`/productos/${productId}?populate=imagenes`);
+      console.log("api producto by id", response.data);
       return response.data;
     } catch (error) {
       console.error('Error fetching product:', error);
