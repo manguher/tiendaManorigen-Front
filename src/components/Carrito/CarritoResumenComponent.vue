@@ -57,7 +57,10 @@
         <input v-model="codigoCupon" placeholder="Código de cupón" class="cupon-input" />
         <button @click="aplicarCupon" class="cupon-btn">Aplicar cupón</button>
         <button @click="seguirComprando" class="secundario-btn">Seguir comprando</button>
-        <button @click="finalizarCompra" class="principal-btn">Finalizar compra</button>
+        <div class="checkout-info">
+          <p class="guest-note">💡 Continuarás como invitado. Solo necesitaremos tu email para confirmar el pedido.</p>
+        </div>
+        <button @click="finalizarCompra" class="principal-btn">Finalizar compra como invitado</button>
       </div>
       <div v-if="mensajeCupon" class="cupon-mensaje">{{ mensajeCupon }}</div>
     </div>
@@ -119,7 +122,14 @@ function seguirComprando() {
 }
 
 function finalizarCompra() {
-  alert('Funcionalidad de compra aún no implementada. Aquí iría el checkout.');
+  // Verificar si hay productos en el carrito
+  if (carrito.items.length === 0) {
+    alert('No hay productos en el carrito');
+    return;
+  }
+  
+  // Redirigir a la página de checkout
+  router.push('/checkout');
 }
 </script>
 
@@ -181,7 +191,6 @@ function finalizarCompra() {
   color: #c0392b;
 }
 
-
 .producto-img {
   width: 48px;
   height: 48px;
@@ -198,6 +207,21 @@ function finalizarCompra() {
   color: #888;
   font-size: 1.1rem;
   margin: 2rem 0;
+}
+
+.checkout-info {
+  margin: 1rem 0;
+  padding: 0.75rem;
+  background-color: #f8f9fa;
+  border-left: 4px solid #007bff;
+  border-radius: 4px;
+}
+
+.guest-note {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #495057;
+  line-height: 1.4;
 }
 
 @media (max-width: 600px) {
