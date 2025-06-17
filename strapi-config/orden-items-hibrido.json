@@ -1,0 +1,49 @@
+{
+  "kind": "collectionType",
+  "collectionName": "orden_items",
+  "info": {
+    "singularName": "orden-item",
+    "pluralName": "orden-items", 
+    "displayName": "Orden Item",
+    "description": "Items individuales de una orden con snapshot de datos del producto"
+  },
+  "options": {
+    "draftAndPublish": false,
+    "timestamps": true
+  },
+  "attributes": {
+    "orden": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::orden.orden",
+      "inversedBy": "items",
+      "required": true
+    },
+    "producto": {
+      "type": "relation",
+      "relation": "manyToOne", 
+      "target": "api::producto.producto",
+      "required": true
+    },
+    "cantidad": {
+      "type": "integer",
+      "required": true,
+      "min": 1
+    },
+    "precioUnitario": {
+      "type": "decimal",
+      "required": true,
+      "min": 0
+    },
+    "subtotal": {
+      "type": "decimal",
+      "required": true,
+      "min": 0
+    },
+    "snapshotProducto": {
+      "type": "json",
+      "required": true,
+      "description": "Datos del producto al momento de la compra"
+    }
+  }
+}

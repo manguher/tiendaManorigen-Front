@@ -1,0 +1,76 @@
+{
+  "kind": "collectionType",
+  "collectionName": "usuarios",
+  "info": {
+    "singularName": "usuario",
+    "pluralName": "usuarios",
+    "displayName": "Usuario",
+    "description": "Usuarios de la tienda (registrados e invitados)"
+  },
+  "options": {
+    "draftAndPublish": false,
+    "timestamps": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "email": {
+      "type": "email",
+      "required": true,
+      "unique": true,
+      "configurable": false
+    },
+    "nombre": {
+      "type": "string",
+      "required": true,
+      "maxLength": 100
+    },
+    "apellido": {
+      "type": "string",
+      "required": false,
+      "maxLength": 100
+    },
+    "telefono": {
+      "type": "string",
+      "required": false,
+      "maxLength": 20
+    },
+    "tipo": {
+      "type": "enumeration",
+      "enum": [
+        "registrado",
+        "invitado"
+      ],
+      "default": "invitado",
+      "required": true
+    },
+    "fechaRegistro": {
+      "type": "datetime",
+      "required": true,
+      "default": "now"
+    },
+    "activo": {
+      "type": "boolean",
+      "default": true,
+      "required": true
+    },
+    "direcciones": {
+      "type": "json",
+      "required": false
+    },
+    "ordenes": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::orden.orden",
+      "mappedBy": "usuario",
+      "description": "Relación entre un usuario y sus órdenes"
+    },
+    "ultimoAcceso": {
+      "type": "datetime",
+      "required": false
+    },
+    "metadata": {
+      "type": "json",
+      "required": false
+    }
+  }
+}

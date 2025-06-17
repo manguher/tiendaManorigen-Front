@@ -1,0 +1,127 @@
+{
+  "kind": "collectionType",
+  "collectionName": "ordenes",
+  "info": {
+    "singularName": "orden",
+    "pluralName": "ordenes",
+    "displayName": "Orden",
+    "description": "Órdenes de compra de la tienda"
+  },
+  "options": {
+    "draftAndPublish": false,
+    "timestamps": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "numeroOrden": {
+      "type": "string",
+      "required": true,
+      "unique": true,
+      "maxLength": 20
+    },
+    "usuario": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::usuario.usuario",
+      "inversedBy": "ordenes"
+    },
+    "estado": {
+      "type": "enumeration",
+      "enum": [
+        "pendiente",
+        "pagado",
+        "procesando",
+        "enviado",
+        "entregado",
+        "cancelado",
+        "reembolsado"
+      ],
+      "default": "pendiente",
+      "required": true
+    },
+    "metodoPago": {
+      "type": "enumeration",
+      "enum": [
+        "credit_card",
+        "paypal",
+        "transfer",
+        "cash_on_delivery"
+      ],
+      "required": true
+    },
+    "subtotal": {
+      "type": "decimal",
+      "required": true,
+      "min": 0
+    },
+    "iva": {
+      "type": "decimal",
+      "required": true,
+      "min": 0
+    },
+    "costoEnvio": {
+      "type": "decimal",
+      "required": true,
+      "min": 0,
+      "default": 0
+    },
+    "descuento": {
+      "type": "decimal",
+      "required": false,
+      "min": 0,
+      "default": 0
+    },
+    "total": {
+      "type": "decimal",
+      "required": true,
+      "min": 0
+    },
+    "fechaOrden": {
+      "type": "datetime",
+      "required": true,
+      "default": "now"
+    },
+    "fechaPago": {
+      "type": "datetime",
+      "required": false
+    },
+    "fechaEnvio": {
+      "type": "datetime",
+      "required": false
+    },
+    "fechaEntrega": {
+      "type": "datetime",
+      "required": false
+    },
+    "direccionEnvio": {
+      "type": "json",
+      "required": true
+    },
+    "items": {
+      "type": "json",
+      "required": true
+    },
+    "datosPago": {
+      "type": "json",
+      "required": false
+    },
+    "tracking": {
+      "type": "string",
+      "required": false,
+      "maxLength": 100
+    },
+    "notas": {
+      "type": "text",
+      "required": false
+    },
+    "metadata": {
+      "type": "json",
+      "required": false
+    },
+    "cuponDescuento": {
+      "type": "string",
+      "required": false,
+      "maxLength": 50
+    }
+  }
+}
