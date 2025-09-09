@@ -47,7 +47,7 @@ export default {
         }
       };
 
-      const response = await axios.post('/ordenes', ordenData);
+      const response = await axios.post('/pedidos', ordenData);
       return response.data.data;
     } catch (error) {
       console.error('Error creating order:', error);
@@ -62,7 +62,7 @@ export default {
    */
   async getOrderById(orderId) {
     try {
-      const response = await axios.get(`/ordenes/${orderId}?populate=*`);
+      const response = await axios.get(`/pedidos/${orderId}?populate=*`);
       return response.data.data;
     } catch (error) {
       console.error('Error fetching order:', error);
@@ -77,7 +77,7 @@ export default {
    */
   async getOrdersByUser(userId) {
     try {
-      const response = await axios.get(`/ordenes?filters[usuario][id][$eq]=${userId}&populate=*`);
+      const response = await axios.get(`/pedidos?filters[usuario][id][$eq]=${userId}&populate=*`);
       return response.data.data;
     } catch (error) {
       console.error('Error fetching user orders:', error);
@@ -92,7 +92,7 @@ export default {
    */
   async getOrderByNumber(orderNumber) {
     try {
-      const response = await axios.get(`/ordenes?filters[numeroOrden][$eq]=${orderNumber}&populate=*`);
+      const response = await axios.get(`/pedidos?filters[numeroOrden][$eq]=${orderNumber}&populate=*`);
       return response.data.data[0] || null;
     } catch (error) {
       console.error('Error fetching order by number:', error);
@@ -108,7 +108,7 @@ export default {
    */
   async updateOrderStatus(orderId, estado) {
     try {
-      const response = await axios.put(`/ordenes/${orderId}`, {
+      const response = await axios.put(`/pedidos/${orderId}`, {
         data: { estado }
       });
       return response.data.data;
@@ -126,7 +126,7 @@ export default {
    */
   async confirmPayment(orderId, paymentData) {
     try {
-      const response = await axios.put(`/ordenes/${orderId}`, {
+      const response = await axios.put(`/pedidos/${orderId}`, {
         data: {
           estado: 'pagado',
           fechaPago: new Date().toISOString(),
@@ -152,7 +152,7 @@ export default {
    */
   async getOrdersByEmail(email) {
     try {
-      const response = await axios.get(`/ordenes?filters[usuario][email][$eq]=${email}&populate=*`);
+      const response = await axios.get(`/pedidos?filters[usuario][email][$eq]=${email}&populate=*`);
       return response.data.data;
     } catch (error) {
       console.error('Error fetching orders by email:', error);

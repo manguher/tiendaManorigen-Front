@@ -18,6 +18,7 @@ export default {
       };
       
       const usuario = await usuarioApi.createOrFindGuestUser(userData);
+      console.log('Usuario creado o encontrado:', usuario);
       
       // 2. Crear la orden asociada al usuario
       const orderData = {
@@ -35,6 +36,7 @@ export default {
         userAgent: checkoutData.userAgent
       };
       
+      console.log('Datos de la orden:', orderData);
       const orden = await ordenApi.createOrder(orderData);
       
       return {

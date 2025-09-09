@@ -446,6 +446,7 @@ export default {
         
         // Procesar el checkout usando la API de Strapi
         const result = await checkoutApi.processGuestCheckout(checkoutData);
+        console.log('Resultado del checkout:', result);
         
         if (result.success) {
           // Guardar información del pedido en localStorage para referencia futura

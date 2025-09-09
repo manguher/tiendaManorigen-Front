@@ -9,8 +9,15 @@ export default {
    */
   async createOrFindGuestUser(userData) {
     try {
-      // Intentamos crear el usuario directamente
-      // Si ya existe, Strapi retornará un error que manejaremos
+      // Primero intentamos buscar si el usuario ya existe
+      const existingUserResponse = await axios.get(`/usuarios?filters[email][$eq]=${userData.email}`);
+      
+      // Si el usuario existe, lo retornamos
+      if (existingUserResponse.data.data && existingUserResponse.data.data.length > 0) {
+        return existingUserResponse.data.data[0];
+      }
+      
+      // Si no existe, creamos un nuevo usuario
       const newUserData = {
         data: {
           email: userData.email,
@@ -24,27 +31,9 @@ export default {
       
       const response = await axios.post('/usuarios', newUserData);
       return response.data.data;
-    } catch (error) {
-      // Si el error es por email duplicado (constraint violation)
-      if (error.response?.status === 400 && 
-          error.response?.data?.error?.message?.includes('email')) {
-        
-        // El usuario ya existe, intentamos buscarlo por email
-        // Nota: Esto requiere permisos de 'find' en Strapi
-        try {
-          const existingUserResponse = await axios.get(`/usuarios?filters[email][$eq]=${userData.email}`);
-          
-          if (existingUserResponse.data.data && existingUserResponse.data.data.length > 0) {
-            return existingUserResponse.data.data[0];
-          }
-        } catch (findError) {
-          console.error('Error finding existing user:', findError);
-          // Si no podemos buscar, retornamos un error más descriptivo
-          throw new Error('Usuario ya existe pero no se puede acceder. Verifica los permisos en Strapi.');
-        }
-      }
       
-      console.error('Error creating guest user:', error);
+    } catch (error) {
+      console.error('Error en createOrFindGuestUser:', error);
       throw error;
     }
   },
