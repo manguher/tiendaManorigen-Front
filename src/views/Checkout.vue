@@ -43,65 +43,13 @@
             <input v-model="shippingInfo.phone" type="tel" required>
           </div>
           <div class="form-actions">
-            <button type="submit" class="btn btn-primary">Continuar al pago</button>
+            <button type="submit" class="btn btn-primary">Continuar a revisar pedido</button>
           </div>
         </form>
       </div>
 
-      <!-- Paso 2: Método de pago -->
+      <!-- Paso 2: Resumen y confirmación -->
       <div v-else-if="currentStep === 1" class="checkout-step">
-        <h2>Método de Pago</h2>
-        <div class="payment-methods">
-          <div 
-            v-for="method in paymentMethods" 
-            :key="method.id"
-            class="payment-method"
-            :class="{ 'selected': paymentMethod === method.id }"
-            @click="selectPaymentMethod(method.id)"
-          >
-            <img :src="method.icon" :alt="method.name">
-            <span>{{ method.name }}</span>
-          </div>
-        </div>
-        
-        <!-- Formulario de pago con Stripe -->
-        <div v-if="paymentMethod === 'credit_card'" class="stripe-payment-container">
-          <StripePaymentForm
-            v-if="stripeOptions.publishableKey && clientSecret"
-            :amount="totalAmountForStripe"
-            :publishable-key="stripeOptions.publishableKey"
-            :client-secret="clientSecret"
-            @payment-success="handlePaymentSuccess"
-            @payment-error="handlePaymentError"
-          />
-          <div v-else class="loading-payment">
-            <div class="spinner-border text-primary" role="status">
-              <span class="visually-hidden">Cargando...</span>
-            </div>
-            <p>Preparando el procesador de pagos...</p>
-          </div>
-        </div>
-        
-        <!-- Mensajes de estado del pago -->
-        <div v-if="paymentStatus.message" :class="['alert', paymentStatus.type === 'error' ? 'alert-danger' : 'alert-success']">
-          {{ paymentStatus.message }}
-        </div>
-        
-        <div class="form-actions">
-          <button @click="goToPreviousStep" class="btn btn-secondary">Atrás</button>
-          <button 
-            v-if="paymentMethod !== 'credit_card'"
-            @click="goToNextStep" 
-            :disabled="!paymentMethod" 
-            class="btn btn-primary"
-          >
-            Revisar pedido
-          </button>
-        </div>
-      </div>
-
-      <!-- Paso 3: Resumen y confirmación -->
-      <div v-else-if="currentStep === 2" class="checkout-step">
         <h2>Resumen del Pedido</h2>
         <div class="order-summary">
           <div class="shipping-info">
@@ -157,15 +105,53 @@
           </div>
         </div>
         
+        <!-- Selección de método de pago -->
+        <div class="payment-section">
+          <h3>Método de Pago</h3>
+          <div class="payment-methods">
+            <div 
+              v-for="method in paymentMethods" 
+              :key="method.id"
+              class="payment-method"
+              :class="{ 'selected': paymentMethod === method.id }"
+              @click="selectPaymentMethod(method.id)"
+            >
+              <div class="payment-method-icon">{{ method.icon }}</div>
+              <span>{{ method.name }}</span>
+            </div>
+          </div>
+          
+          <!-- Mensaje informativo sobre Transbank -->
+          <div v-if="paymentMethod === 'transbank'" class="payment-info-box">
+            <p>🔒 Serás redirigido a Transbank para completar el pago de forma segura.</p>
+            <p class="info-note">Acepta tarjetas de débito, crédito y prepago.</p>
+          </div>
+          
+          <!-- BYPASS TEMPORAL: Modo de prueba -->
+          <div v-if="paymentMethod === 'test_mode'" class="payment-info-box test-mode">
+            <p>⚠️ <strong>MODO DE PRUEBA</strong></p>
+            <p>Esta orden se guardará en la base de datos sin procesar pago real.</p>
+          </div>
+        </div>
+        
+        <!-- Mensajes de estado -->
+        <div v-if="paymentStatus.message" :class="['alert', paymentStatus.type === 'error' ? 'alert-danger' : 'alert-success']">
+          {{ paymentStatus.message }}
+        </div>
+        
         <div class="form-actions">
           <button @click="goToPreviousStep" class="btn btn-secondary">Atrás</button>
-          <button @click="processPayment" class="btn btn-primary" :disabled="isProcessing">
-            {{ isProcessing ? 'Procesando...' : 'Confirmar y pagar' }}
+          <button 
+            @click="processPayment" 
+            class="btn btn-primary" 
+            :disabled="isProcessing || !paymentMethod"
+          >
+            {{ isProcessing ? 'Procesando...' : getPaymentButtonText() }}
           </button>
         </div>
       </div>
       
-      <!-- Paso 4: Confirmación -->
+      <!-- Paso 3: Confirmación -->
       <div v-else class="checkout-step success-message">
         <div class="success-icon">✓</div>
         <h2>¡Pago exitoso!</h2>
@@ -196,7 +182,7 @@ export default {
     return {
       carritoStore,
       currentStep: 0,
-      steps: ['Envío', 'Pago', 'Revisar', 'Confirmación'],
+      steps: ['Envío', 'Revisar', 'Confirmación'],
       shippingInfo: {
         fullName: '',
         address: '',
@@ -208,9 +194,8 @@ export default {
       isGuestCheckout: true, // Por defecto usamos checkout como invitado
       paymentMethod: null,
       paymentMethods: [
-        { id: 'credit_card', name: 'Tarjeta de crédito', icon: '/icons/credit-card.svg' },
-        { id: 'paypal', name: 'PayPal', icon: '/icons/paypal.svg' },
-        { id: 'transfer', name: 'Transferencia bancaria', icon: '/icons/bank-transfer.svg' }
+        { id: 'transbank', name: 'Webpay Plus (Transbank)', icon: '💳' },
+        { id: 'tarjeta', name: 'Modo Prueba (Sin pago)', icon: '🧪' }
       ],
       // Configuración de Stripe desde variables de entorno
       stripeOptions: {
@@ -417,18 +402,22 @@ export default {
     },
     selectPaymentMethod(method) {
       this.paymentMethod = method
+      console.log('Método de pago seleccionado:', method);
+    },
+    getPaymentButtonText() {
+      if (this.paymentMethod === 'transbank') {
+        return 'Ir a Webpay';
+      } else if (this.paymentMethod === 'tarjeta') {
+        return 'Confirmar pedido (Prueba)';
+      }
+      return 'Confirmar y pagar';
     },
     async processPayment() {
-      // Si el método de pago es tarjeta, el pago ya se procesó en el componente StripePaymentForm
-      if (this.paymentMethod === 'credit_card') {
-        // El pago ya se manejó a través de los eventos del componente Stripe
-        return;
-      }
-      
-      // Para otros métodos de pago (PayPal, transferencia, etc.)
       this.isProcessing = true;
+      this.paymentStatus = { type: '', message: '' };
+      
       try {
-        // Preparar los datos del pedido para un usuario invitado
+        // Preparar los datos del pedido
         const checkoutData = {
           email: this.guestEmail,
           orderNumber: this.orderNumber.toString(),
@@ -444,33 +433,76 @@ export default {
           userAgent: navigator.userAgent
         };
         
-        // Procesar el checkout usando la API de Strapi
-        const result = await checkoutApi.processGuestCheckout(checkoutData);
-        console.log('Resultado del checkout:', result);
+        console.log('📦 Datos del checkout:', checkoutData);
         
-        if (result.success) {
-          // Guardar información del pedido en localStorage para referencia futura
-          localStorage.setItem('lastGuestOrder', JSON.stringify({
-            orderNumber: this.orderNumber,
-            email: this.guestEmail,
-            date: new Date().toISOString(),
-            orderId: result.orden.id
-          }));
+        // BYPASS TEMPORAL: Si es modo prueba, guardar directamente en BD
+        if (this.paymentMethod === 'tarjeta') {
+          console.log('🧪 Modo prueba activado - Guardando orden en BD...');
           
-          // Si todo sale bien, avanzamos al paso de confirmación
-          this.goToNextStep();
+          const result = await checkoutApi.processGuestCheckout(checkoutData);
+          console.log('✅ Resultado del checkout:', result);
           
-          // Limpiar el carrito después de una compra exitosa
-          this.carritoStore.vaciarCarrito();
-        } else {
-          throw new Error(result.error || 'Error al procesar la orden');
+          if (result.success) {
+            this.paymentStatus = {
+              type: 'success',
+              message: '¡Orden guardada exitosamente en la base de datos!'
+            };
+            
+            // Guardar información del pedido
+            localStorage.setItem('lastGuestOrder', JSON.stringify({
+              orderNumber: this.orderNumber,
+              email: this.guestEmail,
+              date: new Date().toISOString(),
+              orderId: result.orden.id
+            }));
+            
+            // Avanzar al paso de confirmación
+            setTimeout(() => {
+              this.goToNextStep();
+              this.carritoStore.vaciarCarrito();
+            }, 1500);
+          } else {
+            throw new Error(result.error || 'Error al guardar la orden');
+          }
+        }
+        // Integración con Transbank (preparada para el futuro)
+        else if (this.paymentMethod === 'transbank') {
+          console.log('💳 Iniciando proceso de pago con Transbank...');
+          
+          // TODO: Implementar integración con Transbank
+          // Por ahora, guardamos la orden como pendiente
+          const result = await checkoutApi.processGuestCheckout({
+            ...checkoutData,
+            paymentStatus: 'pending'
+          });
+          
+          if (result.success) {
+            // Aquí se redigiría a Transbank
+            this.paymentStatus = {
+              type: 'success',
+              message: 'Redirigiendo a Transbank...'
+            };
+            
+            // TODO: Redirigir a Transbank Webpay
+            // window.location.href = transbankUrl;
+            
+            // Por ahora, simulamos el flujo
+            alert('🚧 Integración con Transbank en desarrollo.\nLa orden se guardó como pendiente.');
+            
+            setTimeout(() => {
+              this.goToNextStep();
+              this.carritoStore.vaciarCarrito();
+            }, 2000);
+          } else {
+            throw new Error(result.error || 'Error al procesar la orden');
+          }
         }
         
       } catch (error) {
-        console.error('Error al procesar el pago:', error);
+        console.error('❌ Error al procesar el pago:', error);
         this.paymentStatus = {
           type: 'error',
-          message: error.message || 'Hubo un error al procesar tu pago. Por favor, inténtalo de nuevo.'
+          message: error.message || 'Hubo un error al procesar tu pedido. Por favor, inténtalo de nuevo.'
         };
       } finally {
         this.isProcessing = false;
@@ -666,6 +698,47 @@ export default {
   margin-bottom: 0.5rem;
 }
 
+.payment-method-icon {
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+}
+
+.payment-section {
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 2px solid #e0e0e0;
+}
+
+.payment-section h3 {
+  margin-bottom: 1rem;
+  color: #333;
+  font-size: 1.3rem;
+}
+
+.payment-info-box {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: #e3f2fd;
+  border-left: 4px solid #1976d2;
+  border-radius: 4px;
+}
+
+.payment-info-box p {
+  margin: 0.5rem 0;
+  color: #333;
+}
+
+.payment-info-box.test-mode {
+  background: #fff3cd;
+  border-left-color: #ffc107;
+}
+
+.payment-info-box .info-note {
+  font-size: 0.9rem;
+  color: #666;
+  font-style: italic;
+}
+
 .order-summary {
   margin: 2rem 0;
 }
@@ -686,10 +759,68 @@ export default {
   gap: 1rem;
   padding: 1rem 0;
   border-bottom: 1px solid #eee;
+  position: relative;
 }
 
 .order-item img {
   width: 80px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+.quantity-selector {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.5rem 0;
+}
+
+.quantity-selector button {
+  width: 30px;
+  height: 30px;
+  border: 1px solid #ddd;
+  background: white;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.quantity-selector button:hover:not(:disabled) {
+  background: #f0f0f0;
+  border-color: #1976d2;
+}
+
+.quantity-selector button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.quantity-selector span {
+  min-width: 30px;
+  text-align: center;
+  font-weight: 600;
+}
+
+.remove-item {
+  position: absolute;
+  top: 1rem;
+  right: 0;
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0.25rem;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+
+.remove-item:hover {
+  opacity: 1;
 }
 
 /* Estilos para el contenedor de pago con Stripe */

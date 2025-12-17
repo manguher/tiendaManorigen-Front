@@ -30,6 +30,7 @@ export default {
             telefono: orderData.shippingInfo.phone
           },
           
+          // TODO : agregar item a strapi 
           // Items de la orden
           items: orderData.items.map(item => ({
             producto: item.id,
@@ -38,6 +39,8 @@ export default {
             subtotal: item.precio * item.quantity
           })),
           
+                
+          // TODO : agregar item a strapi 
           // Metadatos adicionales
           metadata: {
             tipoUsuario: orderData.userType || 'invitado',

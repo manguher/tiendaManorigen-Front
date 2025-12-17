@@ -1,6 +1,7 @@
 // src/api/checkout.js
 import usuarioApi from './usuario';
 import ordenApi from './orden';
+import direccionApi from './direccion';
 
 export default {
   /**
@@ -20,11 +21,35 @@ export default {
       const usuario = await usuarioApi.createOrFindGuestUser(userData);
       console.log('Usuario creado o encontrado:', usuario);
       
-      // 2. Crear la orden asociada al usuario
+      // 2. Crear la dirección de envío asociada al usuario
+      const direccionData = {
+        calle: checkoutData.shippingInfo.address,
+        ciudad: checkoutData.shippingInfo.city,
+        comuna: checkoutData.shippingInfo.comuna || null,
+        region: checkoutData.shippingInfo.region || null,
+        referencia: checkoutData.shippingInfo.referencia || null,
+        codigoPostal: checkoutData.shippingInfo.postalCode,
+        usuarioId: usuario.id
+      };
+      
+      const direccion = await direccionApi.createDireccion(direccionData);
+      console.log('Dirección creada:', direccion);
+      
+      // Mapear método de pago del frontend a valores permitidos por Strapi
+      const metodoPagoMap = {
+        'tarjeta': 'tarjeta',
+        'transbank': 'tarjeta', // Transbank es pago con tarjeta
+        'transferencia': 'transferencia',
+        'efectivo': 'efectivo'
+      };
+      
+      const metodoPago = metodoPagoMap[checkoutData.paymentMethod] || 'tarjeta';
+      
+      // 3. Crear la orden asociada al usuario
       const orderData = {
         numeroOrden: checkoutData.orderNumber,
         usuarioId: usuario.id,
-        metodoPago: checkoutData.paymentMethod,
+        metodoPago: metodoPago,
         subtotal: checkoutData.subtotal,
         iva: checkoutData.iva,
         costoEnvio: checkoutData.shippingCost,
@@ -42,6 +67,7 @@ export default {
       return {
         success: true,
         usuario,
+        direccion,
         orden,
         message: 'Orden creada exitosamente'
       };

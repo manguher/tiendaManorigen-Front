@@ -9,13 +9,20 @@ export default {
    */
   async createOrFindGuestUser(userData) {
     try {
+      console.log('🔍 Buscando usuario con email:', userData.email);
+      
       // Primero intentamos buscar si el usuario ya existe
       const existingUserResponse = await axios.get(`/usuarios?filters[email][$eq]=${userData.email}`);
       
+      console.log('📊 Respuesta de búsqueda:', existingUserResponse.data);
+      
       // Si el usuario existe, lo retornamos
       if (existingUserResponse.data.data && existingUserResponse.data.data.length > 0) {
+        console.log('✅ Usuario encontrado:', existingUserResponse.data.data[0]);
         return existingUserResponse.data.data[0];
       }
+      
+      console.log('➕ Usuario no encontrado, creando nuevo usuario invitado...');
       
       // Si no existe, creamos un nuevo usuario
       const newUserData = {
@@ -29,11 +36,20 @@ export default {
         }
       };
       
+      console.log('📝 Datos del nuevo usuario:', newUserData);
+      
       const response = await axios.post('/usuarios', newUserData);
+      console.log('✅ Usuario creado exitosamente:', response.data.data);
       return response.data.data;
       
     } catch (error) {
-      console.error('Error en createOrFindGuestUser:', error);
+      console.error('❌ Error en createOrFindGuestUser:', error);
+      console.error('📋 Detalles del error:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        url: error.config?.url
+      });
       throw error;
     }
   },
