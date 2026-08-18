@@ -1,6 +1,7 @@
 // src/stores/producto.js
 import { defineStore } from 'pinia';
 import productApi from '../api/producto';
+import backendClient from '../api/backendClient';
 
 const baseUrl = import.meta.env.VITE_APP_STRAPI_BASE_URL;
 console.log('BASE URL', baseUrl);
@@ -18,6 +19,19 @@ export const useProductoStore = defineStore('producto', {
       this.error = null;
       try {
         const products = await productApi.fetchProducts();
+
+        // Obtener stock real desde Postgres (API NestJS)
+        let stockMap = {};
+        try {
+          const stockResp = await backendClient.get('/stock');
+          stockMap = stockResp.data.reduce((acc, s) => {
+            acc[s.productoIdStrapi] = s.stock;
+            return acc;
+          }, {});
+        } catch (e) {
+          console.warn('No se pudo obtener stock desde la API, usando stock de Strapi:', e.message);
+        }
+
         const listProducts = products.data.map(item => {
           // Extrae los atributos
           const { id } = item;
@@ -32,12 +46,13 @@ export const useProductoStore = defineStore('producto', {
             };
           }) || [];
           // Retorna el objeto con las imágenes incluidas
+          // Stock desde Postgres (fuente autoritativa), fallback a Strapi
           return {
             id,
             nombre,
             descripcion,
             precio,
-            stock,
+            stock: stockMap[id] !== undefined ? stockMap[id] : stock,
             createdAt,
             updatedAt,
             publishedAt,
@@ -56,6 +71,15 @@ export const useProductoStore = defineStore('producto', {
       this.error = null;
       try {
         const product = await productApi.fetchProductById(productId);
+        // Obtener stock real desde Postgres
+        try {
+          const stockResp = await backendClient.get(`/stock/${productId}`);
+          if (stockResp.data && stockResp.data.stock !== undefined) {
+            product.data.attributes.stock = stockResp.data.stock;
+          }
+        } catch (e) {
+          console.warn('No se pudo obtener stock desde la API:', e.message);
+        }
         this.product = product;
       } catch (error) {
         this.error = error;
