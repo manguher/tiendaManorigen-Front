@@ -1,5 +1,5 @@
 // src/api/orden.js
-import axios from './index';
+import backendClient from './backendClient';
 
 export default {
   /**
@@ -9,49 +9,44 @@ export default {
    */
   async createOrder(orderData) {
     try {
+      const direccion = orderData.direccionEnvio || orderData.shippingInfo || {};
+
       const ordenData = {
-        data: {
-          numeroOrden: orderData.numeroOrden,
-          usuario: orderData.usuarioId, // Relación con el usuario
-          estado: 'pendiente',
-          metodoPago: orderData.metodoPago,
-          subtotal: parseFloat(orderData.subtotal),
-          iva: parseFloat(orderData.iva),
-          costoEnvio: parseFloat(orderData.costoEnvio),
-          total: parseFloat(orderData.total),
-          fechaOrden: new Date().toISOString(),
-          
-          // Información de envío
-          direccionEnvio: {
-            nombreCompleto: orderData.shippingInfo.fullName,
-            direccion: orderData.shippingInfo.address,
-            ciudad: orderData.shippingInfo.city,
-            codigoPostal: orderData.shippingInfo.postalCode,
-            telefono: orderData.shippingInfo.phone
-          },
-          
-          // TODO : agregar item a strapi 
-          // Items de la orden
-          items: orderData.items.map(item => ({
-            producto: item.id,
-            cantidad: item.quantity,
-            precioUnitario: item.precio,
-            subtotal: item.precio * item.quantity
-          })),
-          
-                
-          // TODO : agregar item a strapi 
-          // Metadatos adicionales
-          metadata: {
-            tipoUsuario: orderData.userType || 'invitado',
-            ip: orderData.ip || null,
-            userAgent: orderData.userAgent || null
-          }
+        usuarioId: orderData.usuarioId,
+        emailContacto: orderData.emailContacto || orderData.email || null,
+        subtotal: parseFloat(orderData.subtotal),
+        iva: parseFloat(orderData.iva),
+        costoEnvio: parseFloat(orderData.costoEnvio),
+        total: parseFloat(orderData.total),
+        metodoPago: orderData.metodoPago,
+        notas: orderData.notas || '',
+        items: orderData.items.map(item => ({
+          productoIdStrapi: item.id,
+          productoNombre: item.nombre,
+          productoDescripcion: item.descripcion || '',
+          productoImagenUrl: item.images && item.images.length > 0 
+            ? item.images[0].url 
+            : '',
+          precioUnitario: parseFloat(item.precio),
+          cantidad: item.quantity,
+          subtotal: parseFloat(item.precio) * item.quantity
+        })),
+        direccionEnvio: {
+          nombreCompleto: direccion.nombreCompleto || direccion.fullName || '',
+          calle: direccion.calle || direccion.address || '',
+          ciudad: direccion.ciudad || '',
+          comuna: direccion.comuna || '',
+          region: direccion.region || '',
+          codigoPostal: direccion.codigoPostal || direccion.postalCode || '',
+          telefono: direccion.telefono || direccion.phone || '',
+          referencia: direccion.referencia || ''
         }
       };
 
-      const response = await axios.post('/pedidos', ordenData);
-      return response.data.data;
+      console.log('📦 Creando orden en backend:', ordenData);
+      const response = await backendClient.post('/pedidos', ordenData);
+      console.log('✅ Orden creada:', response.data);
+      return response.data;
     } catch (error) {
       console.error('Error creating order:', error);
       throw error;
@@ -65,8 +60,8 @@ export default {
    */
   async getOrderById(orderId) {
     try {
-      const response = await axios.get(`/pedidos/${orderId}?populate=*`);
-      return response.data.data;
+      const response = await backendClient.get(`/pedidos/${orderId}`);
+      return response.data;
     } catch (error) {
       console.error('Error fetching order:', error);
       throw error;
@@ -80,8 +75,8 @@ export default {
    */
   async getOrdersByUser(userId) {
     try {
-      const response = await axios.get(`/pedidos?filters[usuario][id][$eq]=${userId}&populate=*`);
-      return response.data.data;
+      const response = await backendClient.get(`/pedidos/usuario/${userId}`);
+      return response.data;
     } catch (error) {
       console.error('Error fetching user orders:', error);
       throw error;
@@ -95,55 +90,46 @@ export default {
    */
   async getOrderByNumber(orderNumber) {
     try {
-      const response = await axios.get(`/pedidos?filters[numeroOrden][$eq]=${orderNumber}&populate=*`);
-      return response.data.data[0] || null;
+      const response = await backendClient.get(`/pedidos/numero/${orderNumber}`);
+      return response.data;
     } catch (error) {
+      if (error.response?.status === 404) return null;
       console.error('Error fetching order by number:', error);
       throw error;
     }
   },
 
   /**
-   * Actualizar estado de la orden
+   * Tracking de pedido guest: requiere número de orden + email de contacto
+   * @param {string} orderNumber - Número de orden
+   * @param {string} email - Email de contacto del pedido
+   * @returns {Promise} - Datos de la orden
+   */
+  async trackGuestOrder(orderNumber, email) {
+    try {
+      const response = await backendClient.get('/pedidos/guest/tracking', {
+        params: { numeroOrden: orderNumber, emailContacto: email }
+      });
+      return response.data;
+    } catch (error) {
+      if (error.response?.status === 404) return null;
+      console.error('Error tracking guest order:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Actualizar estado de la orden (transiciones admin validadas en la API)
    * @param {number} orderId - ID de la orden
    * @param {string} estado - Nuevo estado
    * @returns {Promise} - Orden actualizada
    */
   async updateOrderStatus(orderId, estado) {
     try {
-      const response = await axios.put(`/pedidos/${orderId}`, {
-        data: { estado }
-      });
-      return response.data.data;
+      const response = await backendClient.patch(`/pedidos/${orderId}/estado`, { estado });
+      return response.data;
     } catch (error) {
       console.error('Error updating order status:', error);
-      throw error;
-    }
-  },
-
-  /**
-   * Confirmar pago de la orden
-   * @param {number} orderId - ID de la orden
-   * @param {Object} paymentData - Datos del pago
-   * @returns {Promise} - Orden actualizada
-   */
-  async confirmPayment(orderId, paymentData) {
-    try {
-      const response = await axios.put(`/pedidos/${orderId}`, {
-        data: {
-          estado: 'pagado',
-          fechaPago: new Date().toISOString(),
-          datosPago: {
-            transactionId: paymentData.transactionId,
-            paymentMethod: paymentData.paymentMethod,
-            amount: paymentData.amount,
-            currency: paymentData.currency || 'CLP'
-          }
-        }
-      });
-      return response.data.data;
-    } catch (error) {
-      console.error('Error confirming payment:', error);
       throw error;
     }
   },
@@ -155,8 +141,8 @@ export default {
    */
   async getOrdersByEmail(email) {
     try {
-      const response = await axios.get(`/pedidos?filters[usuario][email][$eq]=${email}&populate=*`);
-      return response.data.data;
+      const response = await backendClient.get(`/pedidos/email/${email}`);
+      return response.data;
     } catch (error) {
       console.error('Error fetching orders by email:', error);
       throw error;

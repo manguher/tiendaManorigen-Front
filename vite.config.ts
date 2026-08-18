@@ -33,7 +33,7 @@ export default defineConfig({
     }
   },
   optimizeDeps: {
-    include: ['@stripe/stripe-js']
+    include: ['axios']
   },
   // Configuración para solucionar el problema de crypto.getRandomValues
   server: {

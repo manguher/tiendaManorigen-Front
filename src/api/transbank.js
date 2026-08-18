@@ -1,109 +1,55 @@
-import axios from 'axios';
+import backendClient from './backendClient';
 
 /**
- * Módulo de integración con Transbank Webpay Plus
- * Para usar en producción, necesitas configurar el SDK de Transbank en tu backend
+ * Integración con Transbank Webpay Plus vía API Nest.
+ * Flujo: POST /transbank/init { numeroOrden } → redirect a Webpay →
+ * Webpay retorna a la API (returnUrl) → la API confirma y redirige a /pago/resultado.
  */
-
-const TRANSBANK_API_URL = import.meta.env.VITE_APP_TRANSBANK_API_URL || 'http://localhost:1337/api';
 
 /**
- * Crea una transacción en Transbank
- * @param {Object} transactionData - Datos de la transacción
- * @returns {Promise<Object>} - Respuesta con token y URL de pago
+ * Inicia una transacción Webpay para un pedido existente
+ * @param {string} numeroOrden - Número de orden generado por la API
+ * @returns {Promise<{success: boolean, token?: string, url?: string, error?: string}>}
  */
-export const createTransaction = async (transactionData) => {
+export const initTransaction = async (numeroOrden) => {
   try {
-    const response = await axios.post(`${TRANSBANK_API_URL}/transbank/create`, {
-      buyOrder: transactionData.buyOrder,
-      sessionId: transactionData.sessionId,
-      amount: transactionData.amount,
-      returnUrl: transactionData.returnUrl
-    });
-
+    const response = await backendClient.post('/transbank/init', { numeroOrden });
     return {
       success: true,
       token: response.data.token,
       url: response.data.url
     };
   } catch (error) {
-    console.error('Error al crear transacción Transbank:', error);
+    console.error('Error al iniciar transacción Transbank:', error);
     return {
       success: false,
-      error: error.response?.data?.message || 'Error al crear la transacción'
+      error: error.response?.data?.message || 'Error al iniciar la transacción'
     };
   }
 };
 
 /**
- * Confirma una transacción de Transbank
- * @param {string} token - Token de la transacción
- * @returns {Promise<Object>} - Resultado de la confirmación
+ * Redirige el browser a Webpay con un form POST (token_ws),
+ * tal como requiere el flujo Webpay Plus.
+ * @param {string} url - URL de Webpay entregada por init
+ * @param {string} token - token_ws entregado por init
  */
-export const confirmTransaction = async (token) => {
-  try {
-    const response = await axios.post(`${TRANSBANK_API_URL}/transbank/confirm`, {
-      token
-    });
+export const redirectToWebpay = (url, token) => {
+  const form = document.createElement('form');
+  form.method = 'POST';
+  form.action = url;
 
-    return {
-      success: true,
-      data: response.data
-    };
-  } catch (error) {
-    console.error('Error al confirmar transacción Transbank:', error);
-    return {
-      success: false,
-      error: error.response?.data?.message || 'Error al confirmar la transacción'
-    };
-  }
-};
+  const input = document.createElement('input');
+  input.type = 'hidden';
+  input.name = 'token_ws';
+  input.value = token;
 
-/**
- * Obtiene el estado de una transacción
- * @param {string} token - Token de la transacción
- * @returns {Promise<Object>} - Estado de la transacción
- */
-export const getTransactionStatus = async (token) => {
-  try {
-    const response = await axios.get(`${TRANSBANK_API_URL}/transbank/status/${token}`);
-
-    return {
-      success: true,
-      status: response.data.status,
-      data: response.data
-    };
-  } catch (error) {
-    console.error('Error al obtener estado de transacción:', error);
-    return {
-      success: false,
-      error: error.response?.data?.message || 'Error al obtener el estado'
-    };
-  }
-};
-
-/**
- * Genera un número de orden único
- * @returns {string} - Número de orden
- */
-export const generateBuyOrder = () => {
-  const timestamp = Date.now();
-  const random = Math.floor(Math.random() * 1000);
-  return `ORD-${timestamp}-${random}`;
-};
-
-/**
- * Genera un ID de sesión único
- * @returns {string} - ID de sesión
- */
-export const generateSessionId = () => {
-  return `SESSION-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  form.appendChild(input);
+  document.body.appendChild(form);
+  form.submit();
 };
 
 export default {
-  createTransaction,
-  confirmTransaction,
-  getTransactionStatus,
-  generateBuyOrder,
-  generateSessionId
+  initTransaction,
+  redirectToWebpay
 };

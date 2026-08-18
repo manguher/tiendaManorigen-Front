@@ -1,7 +1,10 @@
 import axios from 'axios';
 
-const instance = axios.create({
-  baseURL: 'http://localhost:1337/api',
+// Cliente Axios para Strapi (solo catálogo de productos)
+const strapiClient = axios.create({
+  baseURL: import.meta.env.VITE_APP_STRAPI_BASE_URL 
+    ? `${import.meta.env.VITE_APP_STRAPI_BASE_URL}/api` 
+    : 'http://localhost:1337/api',
 });
 
-export default instance;
+export default strapiClient;

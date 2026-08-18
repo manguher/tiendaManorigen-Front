@@ -66,8 +66,8 @@ export function useGuestOrders() {
   // Computed para obtener órdenes ordenadas por fecha
   const sortedOrders = computed(() => {
     return [...orders.value].sort((a, b) => {
-      const dateA = new Date(a.attributes.fechaOrden);
-      const dateB = new Date(b.attributes.fechaOrden);
+      const dateA = new Date(a.createdAt || a.fechaCreacion);
+      const dateB = new Date(b.createdAt || b.fechaCreacion);
       return dateB - dateA; // Más recientes primero
     });
   });

@@ -34,6 +34,16 @@
               <input v-model="shippingInfo.city" type="text" required>
             </div>
             <div class="form-group">
+              <label>Comuna</label>
+              <input v-model="shippingInfo.comuna" type="text" required>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Región</label>
+              <input v-model="shippingInfo.region" type="text" required>
+            </div>
+            <div class="form-group">
               <label>Código Postal</label>
               <input v-model="shippingInfo.postalCode" type="text" required>
             </div>
@@ -42,6 +52,10 @@
             <label>Teléfono</label>
             <input v-model="shippingInfo.phone" type="tel" required>
           </div>
+          <div class="form-group">
+            <label>Referencia (opcional)</label>
+            <input v-model="shippingInfo.referencia" type="text" placeholder="Ej: Dejar en conserjería">
+          </div>
           <div class="form-actions">
             <button type="submit" class="btn btn-primary">Continuar a revisar pedido</button>
           </div>
@@ -49,14 +63,16 @@
       </div>
 
       <!-- Paso 2: Resumen y confirmación -->
-      <div v-else-if="currentStep === 1" class="checkout-step">
+      <div v-else class="checkout-step">
         <h2>Resumen del Pedido</h2>
         <div class="order-summary">
           <div class="shipping-info">
             <h3>Envío a:</h3>
             <p>{{ shippingInfo.fullName }}</p>
             <p>{{ shippingInfo.address }}</p>
-            <p>{{ shippingInfo.city }}, {{ shippingInfo.postalCode }}</p>
+            <p>{{ shippingInfo.city }}, {{ shippingInfo.comuna }}</p>
+            <p>{{ shippingInfo.region }}, {{ shippingInfo.postalCode }}</p>
+            <p v-if="shippingInfo.referencia">Referencia: {{ shippingInfo.referencia }}</p>
             <p>Tel: {{ shippingInfo.phone }}</p>
           </div>
           
@@ -126,12 +142,6 @@
             <p>🔒 Serás redirigido a Transbank para completar el pago de forma segura.</p>
             <p class="info-note">Acepta tarjetas de débito, crédito y prepago.</p>
           </div>
-          
-          <!-- BYPASS TEMPORAL: Modo de prueba -->
-          <div v-if="paymentMethod === 'test_mode'" class="payment-info-box test-mode">
-            <p>⚠️ <strong>MODO DE PRUEBA</strong></p>
-            <p>Esta orden se guardará en la base de datos sin procesar pago real.</p>
-          </div>
         </div>
         
         <!-- Mensajes de estado -->
@@ -150,72 +160,48 @@
           </button>
         </div>
       </div>
-      
-      <!-- Paso 3: Confirmación -->
-      <div v-else class="checkout-step success-message">
-        <div class="success-icon">✓</div>
-        <h2>¡Pago exitoso!</h2>
-        <p>Tu pedido ha sido procesado correctamente.</p>
-        <p>Número de orden: #{{ orderNumber }}</p>
-        <p>Hemos enviado un correo de confirmación a <strong>{{ guestEmail }}</strong> con los detalles de tu pedido.</p>
-        <p class="guest-note">Guarda tu número de orden para consultas futuras.</p>
-        <router-link to="/" class="btn btn-primary">Volver al inicio</router-link>
-      </div>
     </div>
   </div>
 </template>
 
 <script>
 import { useCarritoStore } from '@/stores/carrito';
-import { useAuthStore } from '@/stores/auth';
-import StripePaymentForm from '@/components/payment/StripePaymentForm.vue';
 import checkoutApi from '@/api/checkout';
-import axios from 'axios';
+import transbankApi from '@/api/transbank';
 
 export default {
   name: 'CheckoutView',
-  components: {
-    StripePaymentForm
-  },
   data() {
     const carritoStore = useCarritoStore();
     return {
       carritoStore,
       currentStep: 0,
-      steps: ['Envío', 'Revisar', 'Confirmación'],
+      steps: ['Envío', 'Revisar y Pagar'],
       shippingInfo: {
         fullName: '',
         address: '',
         city: '',
+        comuna: '',
+        region: '',
         postalCode: '',
-        phone: ''
+        phone: '',
+        referencia: ''
       },
       guestEmail: '', // Campo para el email del usuario invitado
       isGuestCheckout: true, // Por defecto usamos checkout como invitado
+      orderNotes: '', // Notas adicionales del pedido
       paymentMethod: null,
       paymentMethods: [
-        { id: 'transbank', name: 'Webpay Plus (Transbank)', icon: '💳' },
-        { id: 'tarjeta', name: 'Modo Prueba (Sin pago)', icon: '🧪' }
+        { id: 'transbank', name: 'Webpay Plus (Transbank)', icon: '💳' }
       ],
-      // Configuración de Stripe desde variables de entorno
-      stripeOptions: {
-        publishableKey: import.meta.env.VITE_APP_STRIPE_PUBLIC_KEY,
-      },
-      clientSecret: null,
       paymentStatus: {
         type: '',
         message: ''
       },
-      isProcessing: false,
-      orderNumber: Math.floor(100000 + Math.random() * 900000)
+      isProcessing: false
     }
   },
   computed: {
-    // Convertir el total a centavos para Stripe (Stripe usa la menor unidad de la moneda)
-    totalAmountForStripe() {
-      // Asegurarse de que el total sea un número entero en centavos
-      return Math.round(parseFloat(this.total) * 100);
-    },
     cartItems() {
       return this.carritoStore.items.map(item => ({
         ...item.producto,
@@ -236,137 +222,7 @@ export default {
       return (parseFloat(this.subtotal) + parseFloat(this.iva) + parseFloat(this.shippingCost)).toFixed(2);
     }
   },
-  watch: {
-    // Cuando se selecciona el método de pago con tarjeta, crear la intención de pago
-    async paymentMethod(newMethod) {
-      if (newMethod === 'credit_card') {
-        await this.createPaymentIntent();
-      } else {
-        // Limpiar el estado de pago si se cambia a otro método
-        this.clientSecret = null;
-        this.paymentStatus = { type: '', message: '' };
-      }
-    }
-  },
   methods: {
-    // Crear una intención de pago en el servidor
-    async createPaymentIntent() {
-      if (this.totalAmountForStripe <= 0) {
-        this.paymentStatus = {
-          type: 'error',
-          message: 'El monto del carrito no es válido.'
-        };
-        return;
-      }
-
-      try {
-        this.isProcessing = true;
-        this.paymentStatus = { type: '', message: '' };
-        
-        // En una implementación real, esto sería una llamada a tu backend
-        // const response = await axios.post('/api/payments/create-payment-intent', {
-        //   amount: this.totalAmountForStripe,
-        //   currency: 'clp',
-        //   metadata: {
-        //     orderId: `order_${Date.now()}`,
-        //     userType: 'guest',
-        //     email: this.guestEmail,
-        //     shippingInfo: this.shippingInfo
-        //   }
-        // });
-        
-        // Simulamos la respuesta del servidor
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // En producción, usa la respuesta real del servidor:
-        // this.clientSecret = response.data.clientSecret;
-        
-        // Para pruebas, usamos un client secret simulado
-        this.clientSecret = 'pi_mock_secret_' + Math.random().toString(36).substr(2, 9);
-        
-      } catch (error) {
-        console.error('Error al crear la intención de pago:', error);
-        this.paymentStatus = {
-          type: 'error',
-          message: 'No se pudo inicializar el procesador de pagos. Por favor, intente nuevamente.'
-        };
-      } finally {
-        this.isProcessing = false;
-      }
-    },
-    
-    // Manejar pago exitoso
-    async handlePaymentSuccess({ paymentIntent }) {
-      console.log('Pago exitoso:', paymentIntent);
-      this.paymentStatus = {
-        type: 'success',
-        message: '¡Pago procesado correctamente! Guardando orden...'
-      };
-      
-      try {
-        // Preparar los datos del checkout
-        const checkoutData = {
-          email: this.guestEmail,
-          orderNumber: this.orderNumber.toString(),
-          paymentMethod: 'credit_card',
-          subtotal: this.subtotal,
-          iva: this.iva,
-          shippingCost: this.shippingCost,
-          total: this.total,
-          shippingInfo: this.shippingInfo,
-          items: this.cartItems,
-          userType: 'guest',
-          ip: await this.getUserIP(),
-          userAgent: navigator.userAgent
-        };
-        
-        // Procesar el checkout
-        const result = await checkoutApi.processGuestCheckout(checkoutData);
-        
-        if (result.success) {
-          // Confirmar el pago en la orden
-          await checkoutApi.confirmOrderPayment(this.orderNumber.toString(), {
-            transactionId: paymentIntent.id,
-            paymentMethod: 'stripe',
-            amount: paymentIntent.amount,
-            currency: paymentIntent.currency
-          });
-          
-          // Guardar información del pedido
-          localStorage.setItem('lastGuestOrder', JSON.stringify({
-            orderNumber: this.orderNumber,
-            email: this.guestEmail,
-            date: new Date().toISOString(),
-            orderId: result.orden.id,
-            paymentIntentId: paymentIntent.id
-          }));
-          
-          // Avanzar al siguiente paso después de un breve retraso
-          setTimeout(() => {
-            this.goToNextStep();
-            this.carritoStore.vaciarCarrito();
-          }, 1500);
-        } else {
-          throw new Error(result.error || 'Error al guardar la orden');
-        }
-        
-      } catch (error) {
-        console.error('Error al guardar la orden:', error);
-        this.paymentStatus = {
-          type: 'error',
-          message: 'El pago fue exitoso pero hubo un error al guardar la orden. Contacta soporte con el ID: ' + paymentIntent.id
-        };
-      }
-    },
-    
-    // Manejar error en el pago
-    handlePaymentError({ error }) {
-      console.error('Error en el pago:', error);
-      this.paymentStatus = {
-        type: 'error',
-        message: error || 'Ocurrió un error al procesar el pago. Por favor, intente nuevamente.'
-      };
-    },
     updateQuantity(productoId, newQuantity) {
       const item = this.carritoStore.items.find(i => i.producto.id === productoId);
       if (item) {
@@ -407,116 +263,62 @@ export default {
     getPaymentButtonText() {
       if (this.paymentMethod === 'transbank') {
         return 'Ir a Webpay';
-      } else if (this.paymentMethod === 'tarjeta') {
-        return 'Confirmar pedido (Prueba)';
       }
       return 'Confirmar y pagar';
     },
     async processPayment() {
+      if (this.paymentMethod !== 'transbank') return;
+
       this.isProcessing = true;
       this.paymentStatus = { type: '', message: '' };
-      
+
       try {
-        // Preparar los datos del pedido
+        // 1. Crear el pedido en la API (valida precio/stock contra Strapi y recalcula totales)
         const checkoutData = {
           email: this.guestEmail,
-          orderNumber: this.orderNumber.toString(),
           paymentMethod: this.paymentMethod,
           subtotal: this.subtotal,
           iva: this.iva,
           shippingCost: this.shippingCost,
           total: this.total,
+          notas: this.orderNotes,
           shippingInfo: this.shippingInfo,
           items: this.cartItems,
-          userType: 'guest',
-          ip: await this.getUserIP(),
-          userAgent: navigator.userAgent
+          userType: 'guest'
         };
-        
-        console.log('📦 Datos del checkout:', checkoutData);
-        
-        // BYPASS TEMPORAL: Si es modo prueba, guardar directamente en BD
-        if (this.paymentMethod === 'tarjeta') {
-          console.log('🧪 Modo prueba activado - Guardando orden en BD...');
-          
-          const result = await checkoutApi.processGuestCheckout(checkoutData);
-          console.log('✅ Resultado del checkout:', result);
-          
-          if (result.success) {
-            this.paymentStatus = {
-              type: 'success',
-              message: '¡Orden guardada exitosamente en la base de datos!'
-            };
-            
-            // Guardar información del pedido
-            localStorage.setItem('lastGuestOrder', JSON.stringify({
-              orderNumber: this.orderNumber,
-              email: this.guestEmail,
-              date: new Date().toISOString(),
-              orderId: result.orden.id
-            }));
-            
-            // Avanzar al paso de confirmación
-            setTimeout(() => {
-              this.goToNextStep();
-              this.carritoStore.vaciarCarrito();
-            }, 1500);
-          } else {
-            throw new Error(result.error || 'Error al guardar la orden');
-          }
+
+        const result = await checkoutApi.processGuestCheckout(checkoutData);
+
+        if (!result.success) {
+          throw new Error(result.error || 'Error al crear la orden');
         }
-        // Integración con Transbank (preparada para el futuro)
-        else if (this.paymentMethod === 'transbank') {
-          console.log('💳 Iniciando proceso de pago con Transbank...');
-          
-          // TODO: Implementar integración con Transbank
-          // Por ahora, guardamos la orden como pendiente
-          const result = await checkoutApi.processGuestCheckout({
-            ...checkoutData,
-            paymentStatus: 'pending'
-          });
-          
-          if (result.success) {
-            // Aquí se redigiría a Transbank
-            this.paymentStatus = {
-              type: 'success',
-              message: 'Redirigiendo a Transbank...'
-            };
-            
-            // TODO: Redirigir a Transbank Webpay
-            // window.location.href = transbankUrl;
-            
-            // Por ahora, simulamos el flujo
-            alert('🚧 Integración con Transbank en desarrollo.\nLa orden se guardó como pendiente.');
-            
-            setTimeout(() => {
-              this.goToNextStep();
-              this.carritoStore.vaciarCarrito();
-            }, 2000);
-          } else {
-            throw new Error(result.error || 'Error al procesar la orden');
-          }
+
+        const orden = result.orden;
+
+        // Guardar referencia con el número de orden REAL generado por la API
+        localStorage.setItem('lastGuestOrder', JSON.stringify({
+          orderNumber: orden.numeroOrden,
+          email: this.guestEmail,
+          date: new Date().toISOString(),
+          orderId: orden.id
+        }));
+
+        // 2. Iniciar transacción Webpay para ese pedido
+        const pago = await transbankApi.initTransaction(orden.numeroOrden);
+
+        if (!pago.success) {
+          throw new Error(pago.error || 'No se pudo iniciar el pago con Transbank');
         }
-        
+
+        // 3. Redirigir a Webpay (el carrito se vacía en /pago/resultado si el pago es autorizado)
+        transbankApi.redirectToWebpay(pago.url, pago.token);
       } catch (error) {
         console.error('❌ Error al procesar el pago:', error);
         this.paymentStatus = {
           type: 'error',
           message: error.message || 'Hubo un error al procesar tu pedido. Por favor, inténtalo de nuevo.'
         };
-      } finally {
         this.isProcessing = false;
-      }
-    },
-    // Obtener IP del usuario (opcional)
-    async getUserIP() {
-      try {
-        const response = await fetch('https://api.ipify.org?format=json');
-        const data = await response.json();
-        return data.ip;
-      } catch (error) {
-        console.log('No se pudo obtener la IP del usuario');
-        return null;
       }
     }
   }

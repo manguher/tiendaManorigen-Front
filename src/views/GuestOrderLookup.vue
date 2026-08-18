@@ -67,7 +67,7 @@
       <!-- Detalles de la orden -->
       <div v-else class="order-details">
         <div class="order-header">
-          <h2>Detalles del Pedido #{{ selectedOrder.attributes.numeroOrden }}</h2>
+          <h2>Detalles del Pedido #{{ selectedOrder.numeroOrden }}</h2>
           <button @click="goBack" class="btn btn-secondary">← Buscar otra orden</button>
         </div>
 
@@ -75,11 +75,11 @@
           <!-- Estado de la orden -->
           <div class="info-card">
             <h3>Estado del Pedido</h3>
-            <div class="status-badge" :class="`status-${selectedOrder.attributes.estado}`">
-              {{ getStatusText(selectedOrder.attributes.estado) }}
+            <div class="status-badge" :class="`status-${selectedOrder.estado}`">
+              {{ getStatusText(selectedOrder.estado) }}
             </div>
             <p class="order-date">
-              Realizado el {{ formatDate(selectedOrder.attributes.fechaOrden) }}
+              Realizado el {{ formatDate(selectedOrder.fechaOrden) }}
             </p>
           </div>
 
@@ -87,10 +87,12 @@
           <div class="info-card">
             <h3>Dirección de Envío</h3>
             <div class="shipping-info">
-              <p><strong>{{ selectedOrder.attributes.direccionEnvio.nombreCompleto }}</strong></p>
-              <p>{{ selectedOrder.attributes.direccionEnvio.direccion }}</p>
-              <p>{{ selectedOrder.attributes.direccionEnvio.ciudad }}, {{ selectedOrder.attributes.direccionEnvio.codigoPostal }}</p>
-              <p>Tel: {{ selectedOrder.attributes.direccionEnvio.telefono }}</p>
+              <p><strong>{{ selectedOrder.direccionEnvio.nombreCompleto }}</strong></p>
+              <p>{{ selectedOrder.direccionEnvio.calle }}</p>
+              <p>{{ selectedOrder.direccionEnvio.ciudad }}, {{ selectedOrder.direccionEnvio.comuna }}</p>
+              <p>{{ selectedOrder.direccionEnvio.region }}<span v-if="selectedOrder.direccionEnvio.codigoPostal">, {{ selectedOrder.direccionEnvio.codigoPostal }}</span></p>
+              <p v-if="selectedOrder.direccionEnvio.referencia">Ref: {{ selectedOrder.direccionEnvio.referencia }}</p>
+              <p>Tel: {{ selectedOrder.direccionEnvio.telefono }}</p>
             </div>
           </div>
 
@@ -100,22 +102,22 @@
             <div class="order-summary">
               <div class="summary-row">
                 <span>Subtotal:</span>
-                <span>${{ Number(selectedOrder.attributes.subtotal).toLocaleString('es-CL') }}</span>
+                <span>${{ Number(selectedOrder.subtotal).toLocaleString('es-CL') }}</span>
               </div>
               <div class="summary-row">
                 <span>IVA:</span>
-                <span>${{ Number(selectedOrder.attributes.iva).toLocaleString('es-CL') }}</span>
+                <span>${{ Number(selectedOrder.iva).toLocaleString('es-CL') }}</span>
               </div>
               <div class="summary-row">
                 <span>Envío:</span>
-                <span v-if="selectedOrder.attributes.costoEnvio > 0">
-                  ${{ Number(selectedOrder.attributes.costoEnvio).toLocaleString('es-CL') }}
+                <span v-if="selectedOrder.costoEnvio > 0">
+                  ${{ Number(selectedOrder.costoEnvio).toLocaleString('es-CL') }}
                 </span>
                 <span v-else>Gratis</span>
               </div>
               <div class="summary-row total">
                 <span><strong>Total:</strong></span>
-                <span><strong>${{ Number(selectedOrder.attributes.total).toLocaleString('es-CL') }}</strong></span>
+                <span><strong>${{ Number(selectedOrder.total).toLocaleString('es-CL') }}</strong></span>
               </div>
             </div>
           </div>
@@ -126,12 +128,18 @@
           <h3>Productos Ordenados</h3>
           <div class="items-list">
             <div 
-              v-for="(item, index) in selectedOrder.attributes.items" 
+              v-for="(item, index) in selectedOrder.items" 
               :key="index"
               class="item-card"
             >
+              <img
+                v-if="item.productoImagenUrl"
+                :src="item.productoImagenUrl"
+                :alt="item.productoNombre"
+                class="item-imagen"
+              >
               <div class="item-info">
-                <h4>Producto ID: {{ item.producto }}</h4>
+                <h4>{{ item.productoNombre }}</h4>
                 <p>Cantidad: {{ item.cantidad }}</p>
                 <p>Precio unitario: ${{ Number(item.precioUnitario).toLocaleString('es-CL') }}</p>
                 <p><strong>Subtotal: ${{ Number(item.subtotal).toLocaleString('es-CL') }}</strong></p>
@@ -220,6 +228,7 @@ export default {
         'procesando': 'Procesando',
         'enviado': 'Enviado',
         'entregado': 'Entregado',
+        'rechazado': 'Pago rechazado',
         'cancelado': 'Cancelado'
       };
       return statusMap[status] || status;
@@ -433,6 +442,25 @@ export default {
 .status-entregado {
   background-color: #d1ecf1;
   color: #0c5460;
+}
+
+.status-rechazado,
+.status-cancelado {
+  background-color: #f8d7da;
+  color: #721c24;
+}
+
+.item-imagen {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: 4px;
+  margin-right: 1rem;
+}
+
+.item-card {
+  display: flex;
+  align-items: center;
 }
 
 .order-date {

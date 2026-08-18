@@ -1,5 +1,5 @@
 // src/api/usuario.js
-import axios from './index';
+import backendClient from './backendClient';
 
 export default {
   /**
@@ -11,36 +11,27 @@ export default {
     try {
       console.log('🔍 Buscando usuario con email:', userData.email);
       
-      // Primero intentamos buscar si el usuario ya existe
-      const existingUserResponse = await axios.get(`/usuarios?filters[email][$eq]=${userData.email}`);
+      const existingUser = await this.getUserByEmail(userData.email);
       
-      console.log('📊 Respuesta de búsqueda:', existingUserResponse.data);
-      
-      // Si el usuario existe, lo retornamos
-      if (existingUserResponse.data.data && existingUserResponse.data.data.length > 0) {
-        console.log('✅ Usuario encontrado:', existingUserResponse.data.data[0]);
-        return existingUserResponse.data.data[0];
+      if (existingUser) {
+        console.log('✅ Usuario encontrado:', existingUser);
+        return existingUser;
       }
       
       console.log('➕ Usuario no encontrado, creando nuevo usuario invitado...');
       
-      // Si no existe, creamos un nuevo usuario
       const newUserData = {
-        data: {
-          email: userData.email,
-          nombre: userData.nombre,
-          telefono: userData.telefono || null,
-          tipo: 'invitado', // Marcamos como usuario invitado
-          fechaRegistro: new Date().toISOString(),
-          activo: true
-        }
+        email: userData.email,
+        nombre: userData.nombre,
+        telefono: userData.telefono || null,
+        password: null
       };
       
       console.log('📝 Datos del nuevo usuario:', newUserData);
       
-      const response = await axios.post('/usuarios', newUserData);
-      console.log('✅ Usuario creado exitosamente:', response.data.data);
-      return response.data.data;
+      const response = await backendClient.post('/usuarios', newUserData);
+      console.log('✅ Usuario creado exitosamente:', response.data);
+      return response.data;
       
     } catch (error) {
       console.error('❌ Error en createOrFindGuestUser:', error);
@@ -61,8 +52,8 @@ export default {
    */
   async getUserById(userId) {
     try {
-      const response = await axios.get(`/usuarios/${userId}`);
-      return response.data.data;
+      const response = await backendClient.get(`/usuarios/${userId}`);
+      return response.data;
     } catch (error) {
       console.error('Error fetching user:', error);
       throw error;
@@ -76,9 +67,10 @@ export default {
    */
   async getUserByEmail(email) {
     try {
-      const response = await axios.get(`/usuarios?filters[email][$eq]=${email}`);
-      return response.data.data[0] || null;
+      const response = await backendClient.get(`/usuarios/email/${email}`);
+      return response.data;
     } catch (error) {
+      if (error.response?.status === 404) return null;
       console.error('Error fetching user by email:', error);
       throw error;
     }
@@ -92,10 +84,8 @@ export default {
    */
   async updateUser(userId, userData) {
     try {
-      const response = await axios.put(`/usuarios/${userId}`, {
-        data: userData
-      });
-      return response.data.data;
+      const response = await backendClient.put(`/usuarios/${userId}`, userData);
+      return response.data;
     } catch (error) {
       console.error('Error updating user:', error);
       throw error;

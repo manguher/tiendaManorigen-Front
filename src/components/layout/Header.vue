@@ -13,6 +13,7 @@
           <h1>La Lira</h1>
         </div>
         <div class="account-cart">
+          <router-link to="/seguimiento">Seguimiento</router-link>
           <a href="#">Cuenta</a>
           <router-link to="/carrito" class="cart-link">
             Carrito

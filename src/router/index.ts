@@ -3,6 +3,8 @@ import HomeView from '../views/HomeView.vue'
 import ProductDetailView from '../views/ProductDetailView.vue'
 import CarritoView from '../views/CarritoView.vue'
 import CheckoutView from '../views/Checkout.vue'
+import PagoResultadoView from '../views/PagoResultadoView.vue'
+import GuestOrderLookup from '../views/GuestOrderLookup.vue'
 import LoginView from '../views/auth/LoginView.vue'
 import RegisterView from '../views/auth/RegisterView.vue'
 import { authGuard, guestGuard } from './guards'
@@ -27,6 +29,16 @@ const routes = [
     path: '/checkout',
     name: 'checkout',
     component: CheckoutView
+  },
+  {
+    path: '/pago/resultado',
+    name: 'pagoResultado',
+    component: PagoResultadoView
+  },
+  {
+    path: '/seguimiento',
+    name: 'seguimiento',
+    component: GuestOrderLookup
   },
   {
     path: '/login',
