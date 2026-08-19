@@ -5,9 +5,11 @@ export function authGuard(to, from, next) {
   
   if (to.matched.some(record => record.meta.requiresAuth)) {
     if (!authStore.isAuthenticated) {
-      // Guardar la URL a la que intentaban acceder
       authStore.setReturnUrl(to.fullPath);
       return next('/login');
+    }
+    if (to.matched.some(record => record.meta.requiresAdmin) && !authStore.isAdmin) {
+      return next('/');
     }
   }
   

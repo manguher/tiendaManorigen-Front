@@ -124,18 +124,14 @@ async function handleRegister() {
   loading.value = true;
   
   try {
-    // Aquí iría la llamada a la API de registro
-    // Simulamos un registro exitoso
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // Después de registrar, hacemos login automáticamente
-    const loginResult = await authStore.login(form.value.email, form.value.password);
-    
-    if (loginResult.success) {
-      // Redirigir a la página principal
-      router.push('/');
-    } else {
-      error.value = 'Registro exitoso, pero no se pudo iniciar sesión automáticamente. Por favor inicia sesión manualmente.';
+    const result = await authStore.register({
+      nombre: form.value.name,
+      email: form.value.email,
+      password: form.value.password,
+    });
+
+    if (!result.success) {
+      error.value = result.message || 'Error al registrar';
     }
   } catch (err) {
     console.error('Error en el registro:', err);

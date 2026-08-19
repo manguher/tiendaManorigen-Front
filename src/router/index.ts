@@ -7,6 +7,7 @@ import PagoResultadoView from '../views/PagoResultadoView.vue'
 import GuestOrderLookup from '../views/GuestOrderLookup.vue'
 import LoginView from '../views/auth/LoginView.vue'
 import RegisterView from '../views/auth/RegisterView.vue'
+import AdminPedidosView from '../views/admin/AdminPedidosView.vue'
 import { authGuard, guestGuard } from './guards'
 
 const routes = [
@@ -51,6 +52,12 @@ const routes = [
     name: 'register',
     component: RegisterView,
     meta: { guestOnly: true }
+  },
+  {
+    path: '/admin/pedidos',
+    name: 'adminPedidos',
+    component: AdminPedidosView,
+    meta: { requiresAuth: true, requiresAdmin: true }
   },
   // Ruta de ejemplo protegida
   // {

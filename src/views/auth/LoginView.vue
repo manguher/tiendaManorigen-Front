@@ -24,10 +24,7 @@ async function handleLogin() {
   try {
     const result = await authStore.login(form.value.email, form.value.password);
     
-    if (result.success) {
-      // Redirigir a la página anterior o a la página principal
-      router.push('/');
-    } else {
+    if (!result.success) {
       error.value = result.message || 'Error al iniciar sesión';
     }
   } catch (err) {

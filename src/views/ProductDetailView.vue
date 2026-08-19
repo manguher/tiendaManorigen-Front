@@ -52,7 +52,11 @@ function agregarAlCarrito(payload) {
   }
 }
 
-const producto = computed(() => productoStore.product?.data?.attributes || null);
+const producto = computed(() => {
+  const data = productoStore.product?.data;
+  if (!data) return null;
+  return { id: data.id, ...data.attributes };
+});
 </script>
 
 <style scoped>

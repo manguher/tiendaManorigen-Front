@@ -12,7 +12,8 @@
         <p>{{ product.descripcion }}</p>
         <p>Precio: ${{ product.precio }}</p>
         <router-link :to="{ name: 'productoDetalle', params: { id: product.id } }">
-          <img :src="product.images[0].smallUrl" :alt="product.nombre" />
+          <img v-if="product.images && product.images.length" :src="product.images[0].smallUrl || product.images[0].url" :alt="product.nombre" />
+          <span v-else class="no-image">Sin imagen</span>
         </router-link>
         <button @click="agregarAlCarrito(product)">Agregar al carrito</button>
       </li>

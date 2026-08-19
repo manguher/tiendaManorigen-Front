@@ -37,7 +37,7 @@ export const useProductoStore = defineStore('producto', {
           const { id } = item;
           const { nombre, descripcion, precio, stock, createdAt, updatedAt, publishedAt, imagenes } = item.attributes;
           // Extrae las URLs de las imágenes
-          const imageDetails = imagenes?.data.map(img => {
+          const imageDetails = imagenes?.data?.map(img => {
             const { url, formats } = img.attributes;
             return {
               url: `${baseUrl}${url}`,
